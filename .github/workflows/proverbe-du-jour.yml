@@ -1,0 +1,57 @@
+name: Proverbe Wolof & Site Statique - Club Tiossane
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # Tous les jours à 08:00 UTC/GMT
+  push:
+    branches: [ "main" ] # Met aussi à jour le site si vous ajoutez un proverbe
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-et-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: 1. Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: 2. Configurer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 3. Générer le proverbe dans README et docs/index.html
+        run: python update_site.py
+
+      - name: 4. Sauvegarder les fichiers générés sur GitHub
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "Club Tiossane Bot"
+          git add README.md docs/index.html
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: mise à jour quotidienne du proverbe et du site"
+            git push
+          else
+            echo "Aucune modification à committer."
+          fi
+
+      - name: 5. Préparer l'artefact GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './docs'
+
+      - name: 6. Déployer le site statique en ligne
+        id: deployment
+        uses: actions/deploy-pages@v4
